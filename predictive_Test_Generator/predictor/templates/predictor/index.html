@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Predictive Text Generator | Algonive Task 1</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 40px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        textarea { width: 100%; height: 150px; font-size: 16px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; resize: none; }
+        .suggestions { display: flex; gap: 10px; margin-top: 10px; min-height: 40px; }
+        .suggestion-btn { background-color: #007bff; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; display: none; }
+        .suggestion-btn:hover { background-color: #0056b3; }
+        .custom-dict { margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; }
+        input[type="text"] { width: 70%; padding: 8px; }
+        button { padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;}
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Predictive Text Generator</h2>
+    <p>Start typing below. The AI will predict your next word based on context.</p>
+
+    <textarea id="textArea" placeholder="Type something here... e.g., 'hello' or 'machine'"></textarea>
+
+    <div class="suggestions" id="suggestionsBox">
+        <button class="suggestion-btn" id="sug1" onclick="insertSuggestion(this.innerText)"></button>
+        <button class="suggestion-btn" id="sug2" onclick="insertSuggestion(this.innerText)"></button>
+        <button class="suggestion-btn" id="sug3" onclick="insertSuggestion(this.innerText)"></button>
+    </div>
+
+    <div class="custom-dict">
+        <h3>Add to Custom Dictionary</h3>
+        <p>Teach the model new phrases to improve prediction accuracy.</p>
+        <input type="text" id="customWord" placeholder="Enter a frequent phrase...">
+        <button onclick="addCustomWord()">Add Phrase</button>
+        <p id="feedback" style="color: green; font-size: 14px;"></p>
+    </div>
+</div>
+
+<script>
+    const textArea = document.getElementById('textArea');
+    const buttons = [document.getElementById('sug1'), document.getElementById('sug2'), document.getElementById('sug3')];
+
+    // Listen for typing events to fetch predictions dynamically
+    textArea.addEventListener('keyup', function() {
+        const text = this.value;
+        if(text.endsWith(' ')) {
+            fetchPredictions(text);
+        } else {
+            hideButtons(); // Hide if actively typing a word
+        }
+    });
+
+    function fetchPredictions(text) {
+        fetch(`/predict/?q=${encodeURIComponent(text)}`)
+            .then(response => response.json())
+            .then(data => {
+                hideButtons();
+                if(data.suggestions && data.suggestions.length > 0) {
+                    data.suggestions.forEach((word, index) => {
+                        if(buttons[index]) {
+                            buttons[index].innerText = word;
+                            buttons[index].style.display = 'block';
+                        }
+                    });
+                }
+            });
+    }
+
+    function insertSuggestion(word) {
+        // Append the clicked word to the textarea
+        textArea.value += word + " ";
+        textArea.focus();
+        hideButtons();
+        // Fetch next prediction immediately
+        fetchPredictions(textArea.value);
+    }
+
+    function hideButtons() {
+        buttons.forEach(btn => btn.style.display = 'none');
+    }
+
+    // Function to POST new data to the Django custom dictionary model
+    function addCustomWord() {
+        const wordInput = document.getElementById('customWord');
+        const text = wordInput.value;
+
+        if(!text) return;
+
+        fetch('/add-word/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: text })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.status === 'success') {
+                document.getElementById('feedback').innerText = data.message;
+                wordInput.value = '';
+                setTimeout(() => document.getElementById('feedback').innerText = '', 3000);
+            }
+        });
+    }
+</script>
+
+</body>
+</html>
